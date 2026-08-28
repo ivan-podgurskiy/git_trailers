@@ -43,9 +43,20 @@ defmodule GitTrailers.PropertyTest do
     end
   end
 
-  property "repeated parsing is deterministic" do
-    check all(message <- string(:printable), max_runs: 500) do
-      assert GitTrailers.parse(message) == GitTrailers.parse(message)
+  property "canonical trailer serialization is stable after parsing" do
+    check all(
+            trailers <-
+              list_of(
+                tuple({key_generator(), string(:alphanumeric, max_length: 40)}),
+                min_length: 1,
+                max_length: 10
+              ),
+            max_runs: 500
+          ) do
+      canonical = GitTrailers.serialize(trailers)
+      {:ok, result} = GitTrailers.parse("subject\n\n" <> canonical <> "\n")
+
+      assert GitTrailers.serialize(result.trailers) == canonical
     end
   end
 

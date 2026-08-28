@@ -1,7 +1,12 @@
-feat: preserve generated change attribution
+test: cover collectActionInputsPresence + tracking-comment builders
 
-Keep authorship and tool provenance available to audit consumers.
+Two untested pure modules that run on every action invocation, now
+covered — mock-free unit tests, no behavior change.
 
-Co-authored-by: Claude <noreply@anthropic.com>
-Generated-with: Claude Code
-Reviewed-by: Ada Example <ada@example.com>
+- test/collect-inputs.test.ts: missing and malformed inputs degrade to an
+  empty map without throwing.
+- test/comments-common.test.ts: tracking-comment builders retain their
+  exact link shapes.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_019EHHuMgXKUH7EhUtqHEhfj

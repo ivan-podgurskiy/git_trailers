@@ -256,19 +256,29 @@ defmodule GitTrailers.Manipulator do
 
           {:ok, trailer} ->
             {continuations, next_index} = take_continuations(lines, index + 1, end_offset, [])
+            value_offset = trailer.separator_offset + byte_size(trailer.separator)
+
+            source_value =
+              binary_part(line.content, value_offset, byte_size(line.content) - value_offset)
 
             value =
-              [trailer.value | continuations]
-              |> Enum.map(&TrailerLine.trim_horizontal/1)
-              |> Enum.join(" ")
+              [source_value | continuations]
+              |> Enum.join("\n")
               |> String.trim()
+
+            first_value =
+              if continuations == [] do
+                TrailerLine.trim_horizontal(source_value)
+              else
+                Regex.replace(~r/^[ \t]+/, source_value, "")
+              end
 
             item =
               {:trailer,
                %{
                  key: trailer.key,
                  value: value,
-                 first_value: trailer.value,
+                 first_value: first_value,
                  continuations: continuations
                }}
 

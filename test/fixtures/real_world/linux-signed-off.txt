@@ -1,9 +1,13 @@
-net: account transmitted packets exactly once
+bpf, sockmap: Fix cork use-after-free in tcp_bpf_sendmsg()
 
-Avoid charging the packet counter on both the retry and completion paths.
-
-Fixes: 0123456789ab ("net: introduce packet accounting")
-Reported-by: Alice Example <alice@example.com>
-Reviewed-by: Bob Example <bob@example.com>
-Signed-off-by: Carol Example <carol@example.com>
-Signed-off-by: David Example <david@example.com>
+msg_tx can only name the stack-local tmp or the shared cork. Check for
+tmp directly so a changed psock->cork cannot turn a shared message into
+an apparent local one.
+Fixes: 604326b41a6f ("bpf, sockmap: convert to generic sk_msg interface")
+Signed-off-by: Chengfeng Ye <nicoyip.dev@gmail.com>
+Reviewed-by: Emil Tsalapatis <emil@etsalapatis.com>
+Reviewed-by: Jakub Sitnicki <jakub@cloudflare.com>
+Link: https://lore.kernel.org/bpf/87fr18lmzo.fsf%40cloudflare.com/
+Link: https://lore.kernel.org/netdev/20260719161630.2901208-1-nicoyip.dev%40gmail.com/ [v1]
+Link: https://patch.msgid.link/20260724103856.3399001-1-nicoyip.dev@gmail.com
+Signed-off-by: Eduard Zingerman <eddyz87@gmail.com>

@@ -64,6 +64,24 @@ defmodule GitTrailers.ManipulatorTest do
       assert GitTrailers.add(with_record, [{"Fixes", "two"}], where: :start) ==
                "subject\n\nFixes: two\n(cherry picked from commit abc)\nFixes: one\n"
     end
+
+    test "compares folded values without unfolding them" do
+      message = "subject\n\nKey: one\n  two\n"
+
+      expected_by_placement = %{
+        start: "subject\n\nKey: one two\nKey: one\n  two\n",
+        before: "subject\n\nKey: one two\nKey: one\n  two\n",
+        after: "subject\n\nKey: one\n  two\nKey: one two\n",
+        end: "subject\n\nKey: one\n  two\nKey: one two\n"
+      }
+
+      for {where, expected} <- expected_by_placement do
+        assert GitTrailers.add(message, [{"Key", "one two"}], where: where) == expected
+      end
+
+      assert GitTrailers.add(message, [{"Key", "one two"}], if_exists: :add_if_different) ==
+               expected_by_placement.end
+    end
   end
 
   describe "block reconstruction" do
@@ -115,6 +133,13 @@ defmodule GitTrailers.ManipulatorTest do
       assert GitTrailers.add(message, [{"Reviewed-by", "B"}]) ==
                "subject\n\nSigned-off-by: A\n  folded value\nnot trailer\nReviewed-by: B\n"
     end
+
+    test "preserves whitespace immediately before a folded newline" do
+      message = "subject\n\nKey: one   \n  two\n"
+
+      assert GitTrailers.add(message, [{"Other", "x"}]) ==
+               message <> "Other: x\n"
+    end
   end
 
   describe "configured separators" do
@@ -158,9 +183,11 @@ defmodule GitTrailers.ManipulatorTest do
              ) == "subject\n\nSigned- off-by: A\nSigned- B\n"
     end
 
-    test "recognizes folded fallback blocks and rejects orphan continuations" do
+    test "keeps folded comparisons distinct and rejects orphan continuations" do
       folded = "subject\n\nFixes- one\n  continued\n"
-      assert GitTrailers.add(folded, [{"Fixes", "one continued"}], separators: "-:") == folded
+
+      assert GitTrailers.add(folded, [{"Fixes", "one continued"}], separators: "-:") ==
+               folded <> "Fixes- one continued\n"
 
       assert GitTrailers.add(
                "subject\n\n  orphan\nFixes- one\n",
@@ -195,6 +222,13 @@ defmodule GitTrailers.ManipulatorTest do
 
       assert GitTrailers.add(message, [{"Reviewed-by", "A"}]) ==
                "subject\n\nFixes: one\nReviewed-by: A\n# keep\n"
+    end
+
+    test "does not mutate a rejected block separated by a comment and orphan continuation" do
+      message = "subject\n\nKey: one\n# note\n  orphan\nOther: two\n"
+
+      assert GitTrailers.add(message, [{"Reviewed-by", "A"}]) ==
+               message <> "\nReviewed-by: A\n"
     end
   end
 

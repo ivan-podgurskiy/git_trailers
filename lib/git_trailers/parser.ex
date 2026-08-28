@@ -141,7 +141,12 @@ defmodule GitTrailers.Parser do
         end
 
       comment?(line.content) ->
-        scan_block(lines, index - 1, separators, known_keys, counts)
+        scan_block(lines, index - 1, separators, known_keys, {
+          trailer_lines,
+          non_trailer_lines + possible_continuations,
+          0,
+          recognized?
+        })
 
       recognized_prefix?(line.content) ->
         scan_block(lines, index - 1, separators, known_keys, {
@@ -214,7 +219,13 @@ defmodule GitTrailers.Parser do
 
         trailer = %Trailer{
           key: parsed.key,
-          value: normalize_value(value_lines, parsed.separator_offset, options.unfold),
+          value:
+            normalize_value(
+              value_lines,
+              parsed.separator_offset,
+              parsed.separator,
+              options.unfold
+            ),
           raw: Enum.map_join(value_lines, & &1.raw),
           separator: parsed.separator
         }
@@ -233,20 +244,19 @@ defmodule GitTrailers.Parser do
     end)
   end
 
-  defp normalize_value([first | rest], separator_offset, true) do
-    value_offset = separator_offset + 1
+  defp normalize_value([first | rest], separator_offset, separator, true) do
+    value_offset = separator_offset + byte_size(separator)
 
     first_value =
       binary_part(first.content, value_offset, byte_size(first.content) - value_offset)
 
-    [first_value | Enum.map(rest, & &1.content)]
-    |> Enum.map(&TrailerLine.trim_horizontal/1)
+    [first_value | Enum.map(rest, &Regex.replace(~r/^[ \t]+/, &1.content, ""))]
     |> Enum.join(" ")
     |> TrailerLine.trim_horizontal()
   end
 
-  defp normalize_value([first | rest], separator_offset, false) do
-    value_offset = separator_offset + 1
+  defp normalize_value([first | rest], separator_offset, separator, false) do
+    value_offset = separator_offset + byte_size(separator)
 
     first_value =
       binary_part(first.content, value_offset, byte_size(first.content) - value_offset)

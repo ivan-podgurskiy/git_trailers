@@ -1,20 +1,20 @@
 defmodule GitTrailers.AcceptanceTest do
   use ExUnit.Case, async: true
 
-  test "parses a Linux-style review and Signed-off-by chain" do
+  test "parses a pinned Linux review and Signed-off-by chain" do
     message = File.read!("test/fixtures/real_world/linux-signed-off.txt")
     assert {:ok, result} = GitTrailers.parse(message)
 
-    assert result.subject == "net: account transmitted packets exactly once"
-
-    assert result.body ==
-             "\nAvoid charging the packet counter on both the retry and completion paths.\n"
+    assert result.subject == "bpf, sockmap: Fix cork use-after-free in tcp_bpf_sendmsg()"
 
     assert Enum.map(result.trailers, & &1.key) == [
              "Fixes",
-             "Reported-by",
-             "Reviewed-by",
              "Signed-off-by",
+             "Reviewed-by",
+             "Reviewed-by",
+             "Link",
+             "Link",
+             "Link",
              "Signed-off-by"
            ]
   end
@@ -24,9 +24,8 @@ defmodule GitTrailers.AcceptanceTest do
     assert {:ok, result} = GitTrailers.parse(message)
 
     assert Enum.map(result.trailers, &{&1.key, &1.value}) == [
-             {"Co-authored-by", "Claude <noreply@anthropic.com>"},
-             {"Generated-with", "Claude Code"},
-             {"Reviewed-by", "Ada Example <ada@example.com>"}
+             {"Co-Authored-By", "Claude Opus 4.8 <noreply@anthropic.com>"},
+             {"Claude-Session", "https://claude.ai/code/session_019EHHuMgXKUH7EhUtqHEhfj"}
            ]
   end
 end

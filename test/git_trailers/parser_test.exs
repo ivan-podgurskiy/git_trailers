@@ -15,6 +15,13 @@ defmodule GitTrailers.ParserTest do
       assert trailer.value == "one\r\n  two"
       assert trailer.raw == "Key: one\r\n  two\r\n"
     end
+
+    test "preserves whitespace before a folded newline when unfolding" do
+      assert {:ok, %{trailers: [trailer]}} =
+               GitTrailers.parse("s\n\nKey: one   \n  two\n")
+
+      assert trailer.value == "one    two"
+    end
   end
 
   describe "block detection" do
@@ -62,6 +69,12 @@ defmodule GitTrailers.ParserTest do
       assert {:ok, %{trailers: trailers, block_start: 2}} = GitTrailers.parse(message)
       assert Enum.map(trailers, & &1.key) == ["Key", "Other"]
     end
+
+    test "counts a pending orphan continuation when crossing a comment" do
+      message = "s\n\nKey: one\n# note\n  orphan\nOther: two\n"
+
+      assert {:ok, %{trailers: [], block_start: -1}} = GitTrailers.parse(message)
+    end
   end
 
   describe "separators and effective end" do
@@ -81,6 +94,15 @@ defmodule GitTrailers.ParserTest do
       assert trailer.key == "Signed"
       assert trailer.value == "off-by: Alice"
       assert trailer.separator == "-"
+    end
+
+    test "parses a multibyte separator without corrupting the value" do
+      assert {:ok, %{trailers: [trailer]}} =
+               GitTrailers.parse("s\n\nKey§ value\n", separators: "§")
+
+      assert trailer.separator == "§"
+      assert trailer.value == "value"
+      assert String.valid?(trailer.value)
     end
 
     test "stops before an enabled divider and preserves CRLF raw bytes" do

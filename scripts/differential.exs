@@ -20,8 +20,10 @@ defmodule GitTrailers.Differential do
 
     try do
       corpus = Conformance.load!()
-      failures = parse_failures(corpus["parseCases"], git, root)
-      failures = failures ++ add_failures(corpus["addCases"], git, root)
+      parse_cases = corpus["parseCases"] ++ supplemental_parse_cases()
+      add_cases = corpus["addCases"] ++ supplemental_add_cases()
+      failures = parse_failures(parse_cases, git, root)
+      failures = failures ++ add_failures(add_cases, git, root)
 
       if failures != [] do
         raise Enum.join(failures, "\n\n")
@@ -29,7 +31,7 @@ defmodule GitTrailers.Differential do
 
       IO.puts(
         "Git 2.54.0 differential checks passed " <>
-          "(#{length(corpus["parseCases"])} parse, #{length(corpus["addCases"])} add)"
+          "(#{length(parse_cases)} parse, #{length(add_cases)} add)"
       )
     after
       File.rm_rf!(root)
@@ -126,6 +128,34 @@ defmodule GitTrailers.Differential do
 
     args = if options["trimEmpty"] == true, do: args ++ ["--trim-empty"], else: args
     if options["divider"] == false, do: args ++ ["--no-divider"], else: args
+  end
+
+  defp supplemental_parse_cases do
+    [
+      %{
+        "name" => "comment accounts for a pending orphan continuation",
+        "input" => "subject\n\nKey: one\n# note\n  orphan\nOther: two\n"
+      },
+      %{
+        "name" => "unfold retains whitespace before the physical newline",
+        "input" => "subject\n\nKey: one   \n  two\n"
+      }
+    ]
+  end
+
+  defp supplemental_add_cases do
+    [
+      %{
+        "name" => "folded existing value differs from unfolded input",
+        "input" => "subject\n\nKey: one\n  two\n",
+        "trailers" => [%{"key" => "Key", "value" => "one two"}]
+      },
+      %{
+        "name" => "mutation preserves whitespace before a folded newline",
+        "input" => "subject\n\nKey: one   \n  two\n",
+        "trailers" => [%{"key" => "Other", "value" => "x"}]
+      }
+    ]
   end
 
   defp compare(git, args, input, expected, name, root) do
