@@ -113,8 +113,7 @@ defmodule GitTrailers.Manipulator do
       block_start,
       suffix_start,
       has_block?,
-      inserted?,
-      trimmed?,
+      %{inserted?: inserted?, trimmed?: trimmed?},
       options
     )
   end
@@ -299,8 +298,7 @@ defmodule GitTrailers.Manipulator do
          _block_start,
          _suffix_start,
          _has_block?,
-         false,
-         false,
+         %{inserted?: false, trimmed?: false},
          _options
        ),
        do: message
@@ -312,8 +310,7 @@ defmodule GitTrailers.Manipulator do
          block_start,
          suffix_start,
          has_block?,
-         inserted?,
-         _trimmed?,
+         mutation,
          options
        ) do
     separator = options.separators |> String.next_codepoint() |> elem(0)
@@ -322,7 +319,9 @@ defmodule GitTrailers.Manipulator do
       prefix = slice(message, 0, block_start)
       suffix = slice_from(message, suffix_start)
       had_terminal_newline? = last_line_before(lines, suffix_start).eol != ""
-      prefix <> serialize_block(items, separator, inserted? or had_terminal_newline?) <> suffix
+
+      prefix <>
+        serialize_block(items, separator, mutation.inserted? or had_terminal_newline?) <> suffix
     else
       prefix = message |> slice(0, suffix_start) |> prepare_new_block_prefix()
       suffix = slice_from(message, suffix_start)
