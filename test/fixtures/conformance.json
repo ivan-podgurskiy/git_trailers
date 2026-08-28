@@ -1,0 +1,628 @@
+{
+  "source": {
+    "gitVersion": "2.54.0",
+    "documentation": "https://git-scm.com/docs/git-interpret-trailers/2.54.0",
+    "testSuite": "https://github.com/git/git/blob/v2.54.0/t/t7513-interpret-trailers.sh"
+  },
+  "parseCases": [
+    {
+      "name": "no trailer block",
+      "input": "subject\n\nbody\n",
+      "expected": {
+        "trailers": [],
+        "subject": "subject",
+        "body": "\nbody\n",
+        "blockStart": -1,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "all-trailer block",
+      "input": "subject\n\nReviewed-by: Alice\nAcked-by: Bob\n",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Reviewed-by",
+            "value": "Alice",
+            "raw": "Reviewed-by: Alice\n",
+            "separator": ":"
+          },
+          {
+            "key": "Acked-by",
+            "value": "Bob",
+            "raw": "Acked-by: Bob\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "recognized 25 percent boundary accepted",
+      "input": "subject\n\nSigned-off-by: Alice\nnote one\nnote two\nnote three\n",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Signed-off-by",
+            "value": "Alice",
+            "raw": "Signed-off-by: Alice\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "recognized below 25 percent boundary rejected",
+      "input": "subject\n\nSigned-off-by: Alice\nnote one\nnote two\nnote three\nnote four\n",
+      "expected": {
+        "trailers": [],
+        "subject": "subject",
+        "body": "\nSigned-off-by: Alice\nnote one\nnote two\nnote three\nnote four\n",
+        "blockStart": -1,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "cherry-pick prefix recognizes but is not returned",
+      "input": "subject\n\n(cherry picked from commit abcdef)\nnote one\nnote two\nnote three\n",
+      "expected": {
+        "trailers": [],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "configured known key recognizes boundary",
+      "input": "subject\n\nAudit-key: yes\nnote one\nnote two\nnote three\n",
+      "options": { "knownKeys": ["audit-KEY"] },
+      "expected": {
+        "trailers": [
+          {
+            "key": "Audit-key",
+            "value": "yes",
+            "raw": "Audit-key: yes\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "continuations belong to preceding trailer",
+      "input": "subject\n\nKey: first\n  second\n\tthird\n",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "first second third",
+            "raw": "Key: first\n  second\n\tthird\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "continuation is atomic at rejected 25 percent boundary",
+      "input": "subject\n\nSigned-off-by: Alice\n  continuation\nnote one\nnote two\nnote three\nnote four\n",
+      "expected": {
+        "trailers": [],
+        "subject": "subject",
+        "body": "\nSigned-off-by: Alice\n  continuation\nnote one\nnote two\nnote three\nnote four\n",
+        "blockStart": -1,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "orphan continuation does not belong",
+      "input": "subject\n\n  orphan\nKey: value\n",
+      "expected": {
+        "trailers": [],
+        "subject": "subject",
+        "body": "\n  orphan\nKey: value\n",
+        "blockStart": -1,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "leading whitespace rejects new trailer key",
+      "input": "subject\n\n Key: value\n",
+      "expected": {
+        "trailers": [],
+        "subject": "subject",
+        "body": "\n Key: value\n",
+        "blockStart": -1,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "horizontal whitespace before separator",
+      "input": "subject\n\nKey \t : \tvalue \t\n",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "value",
+            "raw": "Key \t : \tvalue \t\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "custom percent separator",
+      "input": "subject\n\nBug% 42\n",
+      "options": { "separators": "%" },
+      "expected": {
+        "trailers": [
+          {
+            "key": "Bug",
+            "value": "42",
+            "raw": "Bug% 42\n",
+            "separator": "%"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "space separator",
+      "input": "subject\n\nKey value\n",
+      "options": { "separators": " " },
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "value",
+            "raw": "Key value\n",
+            "separator": " "
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "tab separator",
+      "input": "subject\n\nKey\tvalue\n",
+      "options": { "separators": "\t" },
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "value",
+            "raw": "Key\tvalue\n",
+            "separator": "\t"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "second configured separator retained in parse result",
+      "input": "subject\n\nKey: value\n",
+      "options": { "separators": "%:" },
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "value",
+            "raw": "Key: value\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "custom separator overlapping key character",
+      "input": "subject\n\nSigned-off-by: Alice\n",
+      "options": { "separators": "-:" },
+      "expected": {
+        "trailers": [
+          {
+            "key": "Signed",
+            "value": "off-by: Alice",
+            "raw": "Signed-off-by: Alice\n",
+            "separator": "-"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "divider enabled stops parsing before patch",
+      "input": "subject\n\nKey: before\n---\nKey: after\n",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "before",
+            "raw": "Key: before\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": true
+      }
+    },
+    {
+      "name": "divider disabled permits trailers below divider",
+      "input": "subject\n\nKey: before\n---\n\nKey: after\n",
+      "options": { "divider": false },
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "after",
+            "raw": "Key: after\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "\nKey: before\n---\n",
+        "blockStart": 5,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "scissors remains effective when divider is disabled",
+      "input": "subject\n\nKey: before\n\n# ------------------------ >8 ------------------------\nKey: after\n",
+      "options": { "divider": false },
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "before",
+            "raw": "Key: before\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "comment lines within accepted block",
+      "input": "subject\n\nKey: one\n# note\nOther: two\n",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "one",
+            "raw": "Key: one\n",
+            "separator": ":"
+          },
+          {
+            "key": "Other",
+            "value": "two",
+            "raw": "Other: two\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "trailing whitespace and comments ignored",
+      "input": "subject\n\nKey: one\n \t\n# trailing comment\n\n",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "one",
+            "raw": "Key: one\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "folded SP and TAB values unfold",
+      "input": "subject\n\nKey: one\n  two\n\tthree\n",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "one two three",
+            "raw": "Key: one\n  two\n\tthree\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "folded value retained when unfold disabled",
+      "input": "subject\n\nKey: one\n  two\n\tthree\n",
+      "options": { "unfold": false },
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "one\n  two\n\tthree",
+            "raw": "Key: one\n  two\n\tthree\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "CRLF input retains exact raw line ending",
+      "input": "subject\r\n\r\nKey: value\r\n",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "value",
+            "raw": "Key: value\r\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "empty trailer value",
+      "input": "subject\n\nEmpty:\n",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Empty",
+            "value": "",
+            "raw": "Empty:\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "trailer without terminal newline",
+      "input": "subject\n\nKey: value",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "value",
+            "raw": "Key: value",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    },
+    {
+      "name": "whitespace-only line separates title and trailers",
+      "input": "subject\n \t\nKey: value\n",
+      "expected": {
+        "trailers": [
+          {
+            "key": "Key",
+            "value": "value",
+            "raw": "Key: value\n",
+            "separator": ":"
+          }
+        ],
+        "subject": "subject",
+        "body": "",
+        "blockStart": 2,
+        "hasDivider": false
+      }
+    }
+  ],
+  "addCases": [
+    {
+      "name": "where end",
+      "input": "subject\n\nFixes: one\nReviewed-by: A\nFixes: two\n",
+      "trailers": [{ "key": "Fixes", "value": "three" }],
+      "options": { "where": "end", "ifExists": "add" },
+      "expected": "subject\n\nFixes: one\nReviewed-by: A\nFixes: two\nFixes: three\n"
+    },
+    {
+      "name": "where start",
+      "input": "subject\n\nFixes: one\nReviewed-by: A\nFixes: two\n",
+      "trailers": [{ "key": "Fixes", "value": "three" }],
+      "options": { "where": "start", "ifExists": "add" },
+      "expected": "subject\n\nFixes: three\nFixes: one\nReviewed-by: A\nFixes: two\n"
+    },
+    {
+      "name": "where after last same key",
+      "input": "subject\n\nFixes: one\nReviewed-by: A\nFixes: two\nReviewed-by: B\n",
+      "trailers": [{ "key": "Fixes", "value": "three" }],
+      "options": { "where": "after", "ifExists": "add" },
+      "expected": "subject\n\nFixes: one\nReviewed-by: A\nFixes: two\nFixes: three\nReviewed-by: B\n"
+    },
+    {
+      "name": "where before first same key",
+      "input": "subject\n\nReviewed-by: A\nFixes: one\nFixes: two\n",
+      "trailers": [{ "key": "Fixes", "value": "three" }],
+      "options": { "where": "before", "ifExists": "add" },
+      "expected": "subject\n\nReviewed-by: A\nFixes: three\nFixes: one\nFixes: two\n"
+    },
+    {
+      "name": "ifExists addIfDifferentNeighbor suppresses neighbor",
+      "input": "subject\n\nFixes: one\nFixes: two\n",
+      "trailers": [{ "key": "Fixes", "value": "two" }],
+      "options": { "ifExists": "addIfDifferentNeighbor" },
+      "expected": "subject\n\nFixes: one\nFixes: two\n"
+    },
+    {
+      "name": "ifExists addIfDifferent suppresses non-neighbor duplicate",
+      "input": "subject\n\nFixes: one\nReviewed-by: A\nFixes: two\n",
+      "trailers": [{ "key": "Fixes", "value": "one" }],
+      "options": { "ifExists": "addIfDifferent" },
+      "expected": "subject\n\nFixes: one\nReviewed-by: A\nFixes: two\n"
+    },
+    {
+      "name": "ifExists add always duplicates",
+      "input": "subject\n\nFixes: one\n",
+      "trailers": [{ "key": "Fixes", "value": "one" }],
+      "options": { "ifExists": "add" },
+      "expected": "subject\n\nFixes: one\nFixes: one\n"
+    },
+    {
+      "name": "ifExists replace nearest to end",
+      "input": "subject\n\nFixes: one\nReviewed-by: A\nFixes: two\n",
+      "trailers": [{ "key": "Fixes", "value": "three" }],
+      "options": { "ifExists": "replace", "where": "end" },
+      "expected": "subject\n\nFixes: one\nReviewed-by: A\nFixes: three\n"
+    },
+    {
+      "name": "ifExists doNothing",
+      "input": "subject\n\nFixes: one\n",
+      "trailers": [{ "key": "Fixes", "value": "two" }],
+      "options": { "ifExists": "doNothing" },
+      "expected": "subject\n\nFixes: one\n"
+    },
+    {
+      "name": "ifMissing add",
+      "input": "subject\n\nFixes: one\n",
+      "trailers": [{ "key": "Acked-by", "value": "A" }],
+      "options": { "ifMissing": "add" },
+      "expected": "subject\n\nFixes: one\nAcked-by: A\n"
+    },
+    {
+      "name": "ifMissing doNothing",
+      "input": "subject\n\nFixes: one\n",
+      "trailers": [{ "key": "Acked-by", "value": "A" }],
+      "options": { "ifMissing": "doNothing" },
+      "expected": "subject\n\nFixes: one\n"
+    },
+    {
+      "name": "trimEmpty removes existing and incoming empty values",
+      "input": "subject\n\nEmpty: \t\nReviewed-by: A\n",
+      "trailers": [{ "key": "Acked-by", "value": " \t " }],
+      "options": { "trimEmpty": true },
+      "expected": "subject\n\nReviewed-by: A\n"
+    },
+    {
+      "name": "trimEmpty disabled preserves empty values",
+      "input": "subject\n\nEmpty:\n",
+      "trailers": [{ "key": "Acked-by", "value": "" }],
+      "options": { "trimEmpty": false, "ifExists": "add" },
+      "expected": "subject\n\nEmpty: \nAcked-by: \n"
+    },
+    {
+      "name": "new trailer block creation",
+      "input": "subject\n\nbody",
+      "trailers": [{ "key": "Reviewed-by", "value": "Alice" }],
+      "expected": "subject\n\nbody\n\nReviewed-by: Alice\n"
+    },
+    {
+      "name": "divider and patch suffix preservation",
+      "input": "subject\n\n---\ndiff --git a/a b/a\n",
+      "trailers": [{ "key": "Reviewed-by", "value": "Alice" }],
+      "expected": "subject\n\nReviewed-by: Alice\n\n---\ndiff --git a/a b/a\n"
+    },
+    {
+      "name": "multiple sequential additions observe predecessors",
+      "input": "subject",
+      "trailers": [
+        { "key": "Reviewed-by", "value": "Alice" },
+        { "key": "Reviewed-by", "value": "Bob" },
+        { "key": "Reviewed-by", "value": "Bob" }
+      ],
+      "expected": "subject\n\nReviewed-by: Alice\nReviewed-by: Bob\n"
+    },
+    {
+      "name": "custom separator used for canonical addition",
+      "input": "subject",
+      "trailers": [{ "key": "Bug", "value": "42" }],
+      "options": { "separators": "%$" },
+      "expected": "subject\n\nBug% 42\n"
+    },
+    {
+      "name": "space separator used for canonical addition",
+      "input": "subject",
+      "trailers": [{ "key": "Key", "value": "value" }],
+      "options": { "separators": " " },
+      "expected": "subject\n\nKey  value\n"
+    },
+    {
+      "name": "tab separator used for canonical addition",
+      "input": "subject",
+      "trailers": [{ "key": "Key", "value": "value" }],
+      "options": { "separators": "\t" },
+      "expected": "subject\n\nKey\t value\n"
+    },
+    {
+      "name": "CRLF preserved outside LF-canonicalized mutated block",
+      "input": "subject\r\n\r\nFixes: one\r\n",
+      "trailers": [{ "key": "Reviewed-by", "value": "Alice" }],
+      "expected": "subject\r\n\r\nFixes: one\nReviewed-by: Alice\n"
+    },
+    {
+      "name": "existing CRLF retained before new LF trailer block",
+      "input": "subject\r\n",
+      "trailers": [{ "key": "Reviewed-by", "value": "Alice" }],
+      "expected": "subject\r\n\nReviewed-by: Alice\n"
+    },
+    {
+      "name": "existing trailer without terminal newline is normalized on mutation",
+      "input": "subject\n\nFixes: one",
+      "trailers": [{ "key": "Reviewed-by", "value": "Alice" }],
+      "expected": "subject\n\nFixes: one\nReviewed-by: Alice\n"
+    }
+  ]
+}

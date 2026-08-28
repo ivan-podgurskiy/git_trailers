@@ -51,6 +51,19 @@ defmodule GitTrailers.ManipulatorTest do
     test "does nothing for a missing key when configured" do
       assert GitTrailers.add(@base, [{"Acked-by", "A"}], if_missing: :do_nothing) == @base
     end
+
+    test "uses the actual insertion neighbor for duplicate suppression" do
+      leading = "subject\n\nFixes: one\nReviewed-by: A\n"
+      assert GitTrailers.add(leading, [{"Fixes", "one"}], where: :start) == leading
+
+      following = "subject\n\nReviewed-by: A\nFixes: two\n"
+      assert GitTrailers.add(following, [{"Fixes", "two"}], where: :before) == following
+
+      with_record = "subject\n\n(cherry picked from commit abc)\nFixes: one\n"
+
+      assert GitTrailers.add(with_record, [{"Fixes", "two"}], where: :start) ==
+               "subject\n\nFixes: two\n(cherry picked from commit abc)\nFixes: one\n"
+    end
   end
 
   describe "block reconstruction" do
@@ -59,6 +72,13 @@ defmodule GitTrailers.ManipulatorTest do
 
       assert GitTrailers.add(message, [{"Acked-by", " \t "}], trim_empty: true) ==
                "subject\n\nReviewed-by: A\n"
+    end
+
+    test "keeps non-trailer records while trimming empty trailers" do
+      message = "subject\n\nSigned-off-by: A\nrecord\nFixes:   \n"
+
+      assert GitTrailers.add(message, [{"Reviewed-by", "B"}], trim_empty: true) ==
+               "subject\n\nSigned-off-by: A\nrecord\nReviewed-by: B\n"
     end
 
     test "returns no-op mutations byte-for-byte" do
@@ -128,6 +148,26 @@ defmodule GitTrailers.ManipulatorTest do
       assert GitTrailers.add(message, [{"Reviewed-by", "A"}], separators: "K:") ==
                "subject\n\nKey: value\n\nReviewed-byK A\n"
     end
+
+    test "uses the first repeated overlapping separator when canonicalizing" do
+      assert GitTrailers.add(
+               "subject\n\nSigned-off-by: A\n",
+               [{"Signed", "B"}],
+               separators: "-:",
+               if_exists: :add
+             ) == "subject\n\nSigned- off-by: A\nSigned- B\n"
+    end
+
+    test "recognizes folded fallback blocks and rejects orphan continuations" do
+      folded = "subject\n\nFixes- one\n  continued\n"
+      assert GitTrailers.add(folded, [{"Fixes", "one continued"}], separators: "-:") == folded
+
+      assert GitTrailers.add(
+               "subject\n\n  orphan\nFixes- one\n",
+               [{"Reviewed-by", "A"}],
+               separators: "-:"
+             ) == "subject\n\n  orphan\nFixes- one\n\nReviewed-by- A\n"
+    end
   end
 
   describe "ignored suffixes" do
@@ -149,6 +189,13 @@ defmodule GitTrailers.ManipulatorTest do
       assert GitTrailers.add(scissors, [{"Reviewed-by", "A"}], divider: false) ==
                "subject\n\nReviewed-by: A\n\n# ------------------------ >8 ------------------------\nignored\n"
     end
+
+    test "preserves a trailing comment after mutating an existing block" do
+      message = "subject\n\nFixes: one\n# keep\n"
+
+      assert GitTrailers.add(message, [{"Reviewed-by", "A"}]) ==
+               "subject\n\nFixes: one\nReviewed-by: A\n# keep\n"
+    end
   end
 
   describe "validation" do
@@ -156,6 +203,10 @@ defmodule GitTrailers.ManipulatorTest do
       assert_raise ArgumentError, fn -> GitTrailers.add(:subject, []) end
       assert_raise ArgumentError, fn -> GitTrailers.add("subject", :trailers) end
       assert_raise ArgumentError, fn -> GitTrailers.add("subject", [], where: :middle) end
+      assert_raise ArgumentError, fn -> GitTrailers.add("subject", [], if_exists: :invalid) end
+      assert_raise ArgumentError, fn -> GitTrailers.add("subject", [], if_missing: :invalid) end
+      assert_raise ArgumentError, fn -> GitTrailers.add("subject", [], trim_empty: :yes) end
+      assert_raise ArgumentError, fn -> GitTrailers.add("subject", [], divider: :yes) end
       assert_raise ArgumentError, fn -> GitTrailers.add("subject", [{"bad key", "A"}]) end
       assert_raise ArgumentError, fn -> GitTrailers.add("subject", [{"Key", "one\ntwo"}]) end
 

@@ -105,6 +105,7 @@ defmodule GitTrailers.ParserTest do
       assert_raise ArgumentError, fn -> GitTrailers.parse("s", unfold: :yes) end
       assert_raise ArgumentError, fn -> GitTrailers.parse("s", known_keys: [:known]) end
       assert_raise ArgumentError, fn -> GitTrailers.parse("s", unknown: true) end
+      assert_raise ArgumentError, fn -> GitTrailers.parse("s", [:not_a_keyword]) end
       assert_raise ArgumentError, fn -> GitTrailers.parse(:not_a_binary) end
     end
   end

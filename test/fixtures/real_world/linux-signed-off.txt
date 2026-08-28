@@ -1,0 +1,9 @@
+net: account transmitted packets exactly once
+
+Avoid charging the packet counter on both the retry and completion paths.
+
+Fixes: 0123456789ab ("net: introduce packet accounting")
+Reported-by: Alice Example <alice@example.com>
+Reviewed-by: Bob Example <bob@example.com>
+Signed-off-by: Carol Example <carol@example.com>
+Signed-off-by: David Example <david@example.com>

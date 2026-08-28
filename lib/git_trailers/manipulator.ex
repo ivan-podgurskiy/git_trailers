@@ -93,22 +93,12 @@ defmodule GitTrailers.Manipulator do
 
     {suffix_start, _has_divider} = Parser.effective_end(message, lines, options.divider)
 
-    fallback_start =
-      if parsed.block_start == -1 do
-        fallback_block_start(lines, suffix_start, options.separators)
-      else
-        -1
-      end
-
-    trailer_block_start =
-      if parsed.block_start == -1, do: fallback_start, else: parsed.block_start
-
-    has_block? = trailer_block_start != -1
-    block_start = if has_block?, do: Enum.at(lines, trailer_block_start).start, else: suffix_start
+    has_block? = parsed.block_start != -1
+    block_start = if has_block?, do: Enum.at(lines, parsed.block_start).start, else: suffix_start
 
     items =
       if has_block? do
-        parse_block_items(lines, trailer_block_start, suffix_start, options.separators)
+        parse_block_items(lines, parsed.block_start, suffix_start, options.separators)
       else
         []
       end
@@ -302,68 +292,6 @@ defmodule GitTrailers.Manipulator do
     end
   end
 
-  defp fallback_block_start(lines, end_offset, separators) do
-    if separator_overlaps_token?(separators) do
-      scan_fallback_start(lines, length(lines) - 1, end_offset, separators, 0)
-    else
-      -1
-    end
-  end
-
-  defp scan_fallback_start(_lines, index, _end_offset, _separators, _trailers) when index < 0,
-    do: -1
-
-  defp scan_fallback_start(lines, index, end_offset, separators, trailers) do
-    line = Enum.at(lines, index)
-
-    cond do
-      line.stop > end_offset ->
-        scan_fallback_start(lines, index - 1, end_offset, separators, trailers)
-
-      blank?(line.content) ->
-        start = index + 1
-
-        if trailers > 0 and fallback_block?(lines, start, end_offset, separators) do
-          start
-        else
-          -1
-        end
-
-      String.starts_with?(line.content, "#") ->
-        scan_fallback_start(lines, index - 1, end_offset, separators, trailers)
-
-      String.starts_with?(line.content, [" ", "\t"]) ->
-        scan_fallback_start(lines, index - 1, end_offset, separators, trailers)
-
-      match?({:ok, _trailer}, TrailerLine.parse(line.content, separators)) ->
-        scan_fallback_start(lines, index - 1, end_offset, separators, trailers + 1)
-
-      true ->
-        -1
-    end
-  end
-
-  defp fallback_block?(lines, start, end_offset, separators) do
-    lines
-    |> Enum.drop(start)
-    |> Enum.reduce_while(false, fn line, saw_trailer? ->
-      cond do
-        line.start >= end_offset -> {:halt, saw_trailer?}
-        String.starts_with?(line.content, "#") -> {:cont, saw_trailer?}
-        String.starts_with?(line.content, [" ", "\t"]) and saw_trailer? -> {:cont, true}
-        String.starts_with?(line.content, [" ", "\t"]) -> {:halt, false}
-        match?({:ok, _trailer}, TrailerLine.parse(line.content, separators)) -> {:cont, true}
-        true -> {:halt, false}
-      end
-    end)
-  end
-
-  defp separator_overlaps_token?(separators) do
-    separators
-    |> String.graphemes()
-    |> Enum.any?(&Regex.match?(~r/^[A-Za-z0-9-]$/, &1))
-  end
-
   defp reconstruct(
          message,
          _lines,
@@ -373,19 +301,6 @@ defmodule GitTrailers.Manipulator do
          _has_block?,
          false,
          false,
-         _options
-       ),
-       do: message
-
-  defp reconstruct(
-         message,
-         _lines,
-         [],
-         _block_start,
-         _suffix_start,
-         false,
-         _inserted?,
-         _trimmed?,
          _options
        ),
        do: message
@@ -433,7 +348,6 @@ defmodule GitTrailers.Manipulator do
 
   defp prepare_new_block_prefix(prefix) do
     cond do
-      String.ends_with?(prefix, "\n\n") -> prefix
       String.ends_with?(prefix, "\n") -> prefix <> "\n"
       prefix == "" -> "\n"
       true -> prefix <> "\n\n"
@@ -446,5 +360,4 @@ defmodule GitTrailers.Manipulator do
 
   defp slice_from(message, start), do: binary_part(message, start, byte_size(message) - start)
   defp slice(message, start, stop), do: binary_part(message, start, stop - start)
-  defp blank?(line), do: Regex.match?(~r/^[ \t]*$/, line)
 end

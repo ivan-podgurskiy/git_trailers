@@ -266,13 +266,8 @@ defmodule GitTrailers.Parser do
   end
 
   defp boundary_start(lines, block_start) do
-    case Enum.at(lines, block_start - 1) do
-      %{content: content, start: start} ->
-        if blank?(content), do: start, else: Enum.at(lines, block_start).start
-
-      nil ->
-        Enum.at(lines, block_start).start
-    end
+    %{content: content, start: start} = Enum.at(lines, block_start - 1)
+    if blank?(content), do: start, else: Enum.at(lines, block_start).start
   end
 
   defp line_content(nil), do: ""

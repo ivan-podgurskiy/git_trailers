@@ -21,6 +21,8 @@ defmodule GitTrailers.SerializerTest do
       assert_raise ArgumentError, fn -> GitTrailers.format({"Key", "value"}, "") end
       assert_raise ArgumentError, fn -> GitTrailers.format({"Key", "value"}, "::") end
       assert_raise ArgumentError, fn -> GitTrailers.format({"Key", "value"}, " ") end
+      assert_raise ArgumentError, fn -> GitTrailers.format({"Key", "value"}, :separator) end
+      assert_raise ArgumentError, fn -> GitTrailers.format({:key, "value"}) end
       assert_raise ArgumentError, fn -> GitTrailers.format(:invalid) end
     end
   end

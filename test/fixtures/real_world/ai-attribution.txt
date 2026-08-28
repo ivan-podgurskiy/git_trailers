@@ -1,0 +1,7 @@
+feat: preserve generated change attribution
+
+Keep authorship and tool provenance available to audit consumers.
+
+Co-authored-by: Claude <noreply@anthropic.com>
+Generated-with: Claude Code
+Reviewed-by: Ada Example <ada@example.com>
