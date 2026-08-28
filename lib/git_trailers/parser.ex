@@ -85,7 +85,9 @@ defmodule GitTrailers.Parser do
     end
   end
 
-  defp effective_end(message, lines, divider?) do
+  @doc false
+  @spec effective_end(binary(), [Lines.line()], boolean()) :: {non_neg_integer(), boolean()}
+  def effective_end(message, lines, divider?) do
     scissors_end =
       Enum.find_value(lines, byte_size(message), fn line ->
         if scissors?(line.content), do: line.start
