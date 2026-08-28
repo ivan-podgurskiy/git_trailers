@@ -1,6 +1,10 @@
 defmodule GitTrailers.Trailer do
   @moduledoc """
   A parsed Git trailer and its exact source text.
+
+  `value` is unfolded by default. `raw` preserves the complete physical source
+  lines and line endings, while `separator` records the character that was
+  actually parsed.
   """
 
   @enforce_keys [:key, :value, :raw, :separator]
