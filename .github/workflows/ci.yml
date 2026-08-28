@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.platform }} · Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Ubuntu
+            os: ubuntu-latest
+            elixir: "1.14"
+            otp: "25"
+          - platform: Ubuntu
+            os: ubuntu-latest
+            elixir: "1.17"
+            otp: "26"
+          - platform: Ubuntu
+            os: ubuntu-latest
+            elixir: "1.18"
+            otp: "27"
+          - platform: Ubuntu
+            os: ubuntu-latest
+            elixir: "1.19"
+            otp: "28"
+          - platform: Ubuntu
+            os: ubuntu-latest
+            elixir: "1.20"
+            otp: "29"
+            quality: true
+          - platform: macOS
+            os: macos-latest
+            elixir: "1.20"
+            otp: "29"
+          - platform: Windows
+            os: windows-latest
+            elixir: "1.20"
+            otp: "29"
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            deps
+            _build
+            priv/plts
+          key: ${{ runner.os }}-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-
+
+      - run: mix deps.get
+      - run: mix compile --warnings-as-errors
+      - run: mix test --warnings-as-errors
+
+      - if: matrix.quality
+        run: mix test --cover --warnings-as-errors
+
+      - if: matrix.quality
+        run: mix format --check-formatted
+
+      - if: matrix.quality
+        run: mix run scripts/check_conformance_hash.exs
+        env:
+          MIX_ENV: dev
+
+      - if: matrix.quality
+        run: mix credo --strict
+        env:
+          MIX_ENV: dev
+
+      - if: matrix.quality
+        run: mix dialyzer --format github
+
+      - if: matrix.quality
+        run: mix docs --warnings-as-errors
+        env:
+          MIX_ENV: dev
+
+      - if: matrix.quality
+        run: mix hex.build
+        env:
+          MIX_ENV: dev
+
+  differential:
+    name: Git 2.54.0 differential
+    runs-on: ubuntu-latest
+    env:
+      GIT_TAG: v2.54.0
+      GIT_VERSION: 2.54.0
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.20"
+          otp-version: "29"
+
+      - name: Set Git paths
+        run: |
+          printf 'GIT_SOURCE_DIR=%s\n' "$RUNNER_TEMP/git-trailers-git/source-v2.54.0" >> "$GITHUB_ENV"
+          printf 'GIT_TRAILERS_GIT=%s\n' "$RUNNER_TEMP/git-trailers-git/v2.54.0/bin/git" >> "$GITHUB_ENV"
+
+      - run: mix deps.get
+      - run: mix compile --warnings-as-errors
+
+      - name: Restore Git 2.54.0 binary
+        id: git-cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/git-trailers-git/v2.54.0/bin/git
+          key: git-trailers-git-${{ runner.os }}-${{ env.GIT_TAG }}
+
+      - name: Build Git 2.54.0
+        if: steps.git-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$(dirname "$GIT_SOURCE_DIR")" "$(dirname "$GIT_TRAILERS_GIT")"
+          git clone --depth 1 --branch "$GIT_TAG" https://github.com/git/git.git "$GIT_SOURCE_DIR"
+          test "$(git -C "$GIT_SOURCE_DIR" describe --tags --exact-match HEAD)" = "$GIT_TAG"
+          (
+            cd "$GIT_SOURCE_DIR"
+            make -j2 git NO_CURL=YesPlease NO_TCLTK=YesPlease
+          )
+          cp "$GIT_SOURCE_DIR/git" "$GIT_TRAILERS_GIT"
+          chmod +x "$GIT_TRAILERS_GIT"
+
+      - name: Verify pinned Git binary
+        run: |
+          test -f "$GIT_TRAILERS_GIT"
+          chmod +x "$GIT_TRAILERS_GIT"
+          test -x "$GIT_TRAILERS_GIT"
+          test "$("$GIT_TRAILERS_GIT" --version)" = "git version $GIT_VERSION"
+
+      - run: mix run scripts/differential.exs

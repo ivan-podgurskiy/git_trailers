@@ -1,0 +1,41 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - security
+      - automated-pr
+    groups:
+      github-actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: mix
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+      - security
+      - automated-pr
+    # Must stay compatible with Elixir ~> 1.14 (newer releases require 1.15+).
+    # Groups batch minor/patch updates; major updates remain ignored.
+    ignore:
+      - dependency-name: earmark_parser
+      - dependency-name: ex_doc
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      mix-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
