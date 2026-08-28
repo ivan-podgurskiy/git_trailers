@@ -1,0 +1,16 @@
+/_build/
+/cover/
+/deps/
+/doc/
+/docs/superpowers/
+/.superpowers/
+/priv/plts/*.plt
+/priv/plts/*.plt.hash
+/tmp/
+erl_crash.dump
+*.ez
+git_trailers-*.tar
+.worktrees/
+PRD*
+.agent-work/
+.DS_Store
