@@ -139,6 +139,10 @@ defmodule GitTrailers.Differential do
       %{
         "name" => "unfold retains whitespace before the physical newline",
         "input" => "subject\n\nKey: one   \n  two\n"
+      },
+      %{
+        "name" => "unfold retains CR before a folded CRLF newline",
+        "input" => "subject\r\n\r\nKey: one   \r\n  two\r\n"
       }
     ]
   end
@@ -153,6 +157,16 @@ defmodule GitTrailers.Differential do
       %{
         "name" => "mutation preserves whitespace before a folded newline",
         "input" => "subject\n\nKey: one   \n  two\n",
+        "trailers" => [%{"key" => "Other", "value" => "x"}]
+      },
+      %{
+        "name" => "mutation trims the folded value's trailing boundary",
+        "input" => "subject\n\nKey: one\n  two   \n",
+        "trailers" => [%{"key" => "Other", "value" => "x"}]
+      },
+      %{
+        "name" => "mutation trims the folded value's leading boundary",
+        "input" => "subject\n\nKey:    \n  two\n",
         "trailers" => [%{"key" => "Other", "value" => "x"}]
       }
     ]

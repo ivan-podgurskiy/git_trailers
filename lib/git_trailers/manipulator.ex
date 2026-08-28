@@ -266,12 +266,7 @@ defmodule GitTrailers.Manipulator do
               |> Enum.join("\n")
               |> String.trim()
 
-            first_value =
-              if continuations == [] do
-                TrailerLine.trim_horizontal(source_value)
-              else
-                Regex.replace(~r/^[ \t]+/, source_value, "")
-              end
+            [first_value | continuations] = String.split(value, "\n")
 
             item =
               {:trailer,

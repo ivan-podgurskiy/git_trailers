@@ -250,9 +250,16 @@ defmodule GitTrailers.Parser do
     first_value =
       binary_part(first.content, value_offset, byte_size(first.content) - value_offset)
 
-    [first_value | Enum.map(rest, &Regex.replace(~r/^[ \t]+/, &1.content, ""))]
-    |> Enum.join(" ")
-    |> TrailerLine.trim_horizontal()
+    value =
+      rest
+      |> Enum.reduce({first_value, first}, fn line, {value, previous} ->
+        {value <> previous.eol <> line.content, line}
+      end)
+      |> elem(0)
+
+    ~r/\n[ \t\r]*/
+    |> Regex.replace(value, " ")
+    |> String.trim()
   end
 
   defp normalize_value([first | rest], separator_offset, separator, false) do

@@ -140,6 +140,14 @@ defmodule GitTrailers.ManipulatorTest do
       assert GitTrailers.add(message, [{"Other", "x"}]) ==
                message <> "Other: x\n"
     end
+
+    test "trims only the complete folded value's outer whitespace" do
+      assert GitTrailers.add("subject\n\nKey: one\n  two   \n", [{"Other", "x"}]) ==
+               "subject\n\nKey: one\n  two\nOther: x\n"
+
+      assert GitTrailers.add("subject\n\nKey:    \n  two\n", [{"Other", "x"}]) ==
+               "subject\n\nKey: two\nOther: x\n"
+    end
   end
 
   describe "configured separators" do

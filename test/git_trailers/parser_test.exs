@@ -22,6 +22,13 @@ defmodule GitTrailers.ParserTest do
 
       assert trailer.value == "one    two"
     end
+
+    test "matches Git when unfolding a CRLF continuation" do
+      assert {:ok, %{trailers: [trailer]}} =
+               GitTrailers.parse("s\r\n\r\nKey: one   \r\n  two\r\n")
+
+      assert trailer.value == "one   \r two"
+    end
   end
 
   describe "block detection" do
