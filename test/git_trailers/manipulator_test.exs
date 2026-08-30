@@ -92,6 +92,13 @@ defmodule GitTrailers.ManipulatorTest do
                "subject\n\nReviewed-by: A\n"
     end
 
+    test "trims existing empty values without incoming trailers" do
+      message = "subject\n\nFixes:   \nReviewed-by: A\n"
+
+      assert GitTrailers.add(message, [], trim_empty: true) ==
+               "subject\n\nReviewed-by: A\n"
+    end
+
     test "keeps non-trailer records while trimming empty trailers" do
       message = "subject\n\nSigned-off-by: A\nrecord\nFixes:   \n"
 

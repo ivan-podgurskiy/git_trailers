@@ -35,7 +35,7 @@ defmodule GitTrailers.Manipulator do
     validate_arguments!(message, trailers)
     normalized = normalize_options(options)
 
-    if trailers == [] do
+    if trailers == [] and not normalized.trim_empty do
       message
     else
       incoming = Enum.map(trailers, &Serializer.validate_trailer!/1)

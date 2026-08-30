@@ -168,6 +168,12 @@ defmodule GitTrailers.Differential do
         "name" => "mutation trims the folded value's leading boundary",
         "input" => "subject\n\nKey:    \n  two\n",
         "trailers" => [%{"key" => "Other", "value" => "x"}]
+      },
+      %{
+        "name" => "trim empty mutates without incoming trailers",
+        "input" => "subject\n\nFixes:   \nReviewed-by: A\n",
+        "trailers" => [],
+        "options" => %{"trimEmpty" => true}
       }
     ]
   end
